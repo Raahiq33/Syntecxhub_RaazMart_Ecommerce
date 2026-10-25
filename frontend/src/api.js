@@ -1,5 +1,7 @@
 
-const API_URL = "http://localhost:5000/api";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://syntecxhub-raaz-mart-ecommerce.vercel.app/api";
 
 // USER REGISTRATION
 export async function registerUser(name, email, password) {
@@ -151,23 +153,18 @@ export async function deleteProduct(token, id) {
   return data;
 }
 
- // ADMIN - GET ALL CUSTOMER ORDERS
+// ADMIN - GET ALL CUSTOMER ORDERS
 export async function getAllOrders(token) {
-  const response = await fetch(
-    "http://localhost:5000/api/orders/admin/all",
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
+  const response = await fetch(`${API_URL}/orders/admin/all`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to load admin orders"
-    );
+    throw new Error(data.message || "Failed to load admin orders");
   }
 
   return data;
@@ -176,7 +173,7 @@ export async function getAllOrders(token) {
 // ADMIN - UPDATE ORDER STATUS
 export async function updateOrderStatus(token, orderId, status) {
   const response = await fetch(
-    `http://localhost:5000/api/orders/admin/${orderId}/status`,
+    `${API_URL}/orders/admin/${orderId}/status`,
     {
       method: "PUT",
       headers: {
@@ -190,9 +187,7 @@ export async function updateOrderStatus(token, orderId, status) {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to update order status"
-    );
+    throw new Error(data.message || "Failed to update order status");
   }
 
   return data;
