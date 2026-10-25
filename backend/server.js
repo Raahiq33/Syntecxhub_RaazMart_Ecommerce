@@ -8,11 +8,13 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
 const authRoutes = require("./routes/authRoutes");
-app.use("/api/auth", authRoutes);
 const productRoutes = require("./routes/productRoutes");
-app.use("/api/products", productRoutes);
 const orderRoutes = require("./routes/orderRoutes");
+
+app.use("/api/auth", authRoutes);
+app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 
 app.get("/", (req, res) => {
@@ -33,27 +35,62 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+// Reuse the MongoDB connection across requests
+let connectionPromise;
 
-async function startServer() {
-  try {
-    if (!process.env.MONGO_URI) {
-      throw new Error("MONGO_URI is missing in .env");
-    }
-
-    await mongoose.connect(process.env.MONGO_URI);
-
-    console.log("MongoDB Connected Successfully!");
-
-    app.listen(PORT, () => {
-      console.log(
-        `RaazMart Backend running on http://localhost:${PORT}`
-      );
-    });
-  } catch (error) {
-    console.error("Database connection failed:", error.message);
-    process.exit(1);
+function connectDatabase() {
+  if (!process.env.MONGO_URI) {
+    return Promise.reject(new Error("MONGO_URI is missing"));
   }
+
+  if (mongoose.connection.readyState === 1) {
+    return Promise.resolve();
+  }
+
+  if (!connectionPromise) {
+    connectionPromise = mongoose
+      .connect(process.env.MONGO_URI)
+      .then(() => {
+        console.log("MongoDB Connected Successfully!");
+      })
+      .catch((error) => {
+        connectionPromise = null;
+        throw error;
+      });
+  }
+
+  return connectionPromise;
 }
 
-startServer();
+// Connect before handling API requests
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ message: "Internal server error" });
+});
+
+if (process.env.VERCEL) {
+  module.exports = async (req, res) => {
+    try {
+      await connectDatabase();
+      return app(req, res);
+    } catch (error) {
+      console.error("Database connection failed:", error.message);
+      return res.status(503).json({
+        message: "Database temporarily unavailable",
+      });
+    }
+  };
+} else {
+  const PORT = process.env.PORT || 5000;
+
+  connectDatabase()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`RaazMart Backend running on port ${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error("Database connection failed:", error.message);
+      process.exit(1);
+    });
+}
